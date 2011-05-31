@@ -1,0 +1,99 @@
+diff -urN gnome-shell-extensions/extensions/dock/extension.js gnome-shell-extensions.new/extensions/dock/extension.js
+--- gnome-shell-extensions/extensions/dock/extension.js	2011-05-31 13:10:20.599085837 +0400
++++ gnome-shell-extensions.new/extensions/dock/extension.js	2011-05-31 14:16:56.620186447 +0400
+@@ -33,7 +33,8 @@
+ // Keep enums in sync with GSettings schemas
+ const PositionMode = {
+     LEFT: 0,
+-    RIGHT: 1
++    RIGHT: 1,
++    BOTTOM: 2
+ };
+ 
+ let position = PositionMode.RIGHT;
+@@ -63,14 +64,23 @@
+         this._spacing = 4;
+         this._item_size = dockicon_size;
+ 
+-        this.actor = new St.BoxLayout({ name: 'dock', vertical: true, reactive: true });
++        if (position == PositionMode.BOTTOM)
++            this.actor = new St.BoxLayout({ name: 'dock', reactive: true });
++        else
++            this.actor = new St.BoxLayout({ name: 'dock', vertical: true, reactive: true });
+ 
+         this._grid = new Shell.GenericContainer();
+         this.actor.add(this._grid, { expand: true, y_align: St.Align.START });
+         this.actor.connect('style-changed', Lang.bind(this, this._onStyleChanged));
+ 
+-        this._grid.connect('get-preferred-width', Lang.bind(this, this._getPreferredWidth));
+-        this._grid.connect('get-preferred-height', Lang.bind(this, this._getPreferredHeight));
++        if (position == PositionMode.BOTTOM) {
++            this._grid.connect('get-preferred-width', Lang.bind(this, this._getPreferredHeight));
++            this._grid.connect('get-preferred-height', Lang.bind(this, this._getPreferredWidth));
++        } else {
++            this._grid.connect('get-preferred-width', Lang.bind(this, this._getPreferredWidth));
++            this._grid.connect('get-preferred-height', Lang.bind(this, this._getPreferredHeight));
++        }
++
+         this._grid.connect('allocate', Lang.bind(this, this._allocate));
+ 
+         this._workId = Main.initializeDeferredWork(this.actor, Lang.bind(this, this._redisplay));
+@@ -146,8 +156,12 @@
+                 this.actor.set_size(this._item_size + 4*this._spacing, height);
+                 this.actor.set_position(0-this._spacing-4, (primary.height-height)/2);
+                 break;
+-            case PositionMode.RIGHT:
++            case PositionMode.BOTTOM:
+             default:
++                this.actor.set_size(width, this._item_size + 4*this._spacing);
++                this.actor.set_position( (primary.width-width)/2 , primary.height-this._item_size-this._spacing-2);
++                break;
++            case PositionMode.RIGHT:
+                 this.actor.set_size(this._item_size + 4*this._spacing, height);
+                 this.actor.set_position(primary.width-this._item_size-this._spacing-2, (primary.height-height)/2);
+         }
+@@ -182,7 +196,10 @@
+             childBox.x2 = childBox.x1 + this._item_size;
+             childBox.y2 = childBox.y1 + this._item_size;
+             children[i].allocate(childBox, flags);
+-            y += this._item_size + this._spacing;
++            if (position == PositionMode.BOTTOM)
++                x += this._item_size + this._spacing;
++            else
++                y += this._item_size + this._spacing;
+         }
+     },
+ 
+@@ -407,8 +424,11 @@
+             case PositionMode.LEFT:
+                 PopupMenu.PopupMenu.prototype._init.call(this, source.actor, St.Align.MIDDLE, St.Side.LEFT, 0);
+                 break;
+-            case PositionMode.RIGHT:
++            case PositionMode.BOTTOM:
+             default:
++                PopupMenu.PopupMenu.prototype._init.call(this, source.actor, St.Align.MIDDLE, St.Side.BOTTOM, 0);
++                break;
++            case PositionMode.RIGHT:
+                 PopupMenu.PopupMenu.prototype._init.call(this, source.actor, St.Align.MIDDLE, St.Side.RIGHT, 0);
+         }
+ 
+diff -urN gnome-shell-extensions/extensions/dock/org.gnome.shell.extensions.dock.gschema.xml.in gnome-shell-extensions.new/extensions/dock/org.gnome.shell.extensions.dock.gschema.xml.in
+--- gnome-shell-extensions/extensions/dock/org.gnome.shell.extensions.dock.gschema.xml.in	2011-05-31 13:10:20.599085837 +0400
++++ gnome-shell-extensions.new/extensions/dock/org.gnome.shell.extensions.dock.gschema.xml.in	2011-05-31 14:15:38.611775887 +0400
+@@ -2,13 +2,14 @@
+   <enum id='org.gnome.shell.extensions.dock.PositionMode'>
+     <value nick='left' value='0'/>
+     <value nick='right' value='1'/>
++    <value nick='bottom' value='2'/>
+   </enum>
+ 
+   <schema id="org.gnome.shell.extensions.dock" path="/org/gnome/shell/extensions/dock/">
+     <key name="position" enum="org.gnome.shell.extensions.dock.PositionMode">
+-      <default>'right'</default>
++      <default>'bottom'</default>
+       <_summary>Position of the dock</_summary>
+-      <_description>Sets the position of the dock in the screen. Allowed values are 'right' or 'left'</_description>
++      <_description>Sets the position of the dock in the screen. Allowed values are 'right', 'left' or 'bottom'.</_description>
+     </key>
+     <key name="size" type="i">
+       <default>48</default>
